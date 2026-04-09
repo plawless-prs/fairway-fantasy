@@ -21,6 +21,11 @@ export const FORMAT_OPTIONS = [
   { value: 'head_to_head', label: 'Head-to-Head (Weekly Matchups)' },
 ];
 
+export const SCORING_MODE_OPTIONS = [
+  { value: 'classic', label: 'Classic (Higher Points = Better)' },
+  { value: 'lowball', label: 'Lowball (Lower Points = Better, Top 5 Count)' },
+];
+
 export const DRAFT_OPTIONS = [
   { value: 'snake', label: 'Snake Draft' },
   { value: 'auction', label: 'Auction Draft' },

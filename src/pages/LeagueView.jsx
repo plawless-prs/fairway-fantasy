@@ -5,6 +5,7 @@ import { useLeague } from '../hooks/useLeague';
 import { useRoster } from '../hooks/useRoster';
 import { LEAGUE_STATUS_LABELS, TRADE_STATUS_LABELS } from '../lib/constants';
 import Standings from '../components/Standings';
+import TournamentScoreboard from '../components/TournamentScoreboard';
 import toast from 'react-hot-toast';
 import {
   BarChart3, Users, ArrowLeftRight, ClipboardList, Settings,
@@ -13,6 +14,7 @@ import {
 
 const TABS = [
   { key: 'standings', label: 'Standings', icon: <BarChart3 size={15} /> },
+  { key: 'tournament', label: 'Live Tournament', icon: <BarChart3 size={15} /> },
   { key: 'members', label: 'Teams', icon: <Users size={15} /> },
   { key: 'trades', label: 'Trades', icon: <ArrowLeftRight size={15} /> },
 ];
@@ -147,7 +149,11 @@ export default function LeagueView() {
 
       {/* Tab Content */}
       {tab === 'standings' && (
-        <Standings standings={standings} format={league.format} />
+        <Standings standings={standings} format={league.format} scoringMode={league.scoring_mode} />
+      )}
+
+      {tab === 'tournament' && (
+        <TournamentScoreboard league={league} />
       )}
 
       {tab === 'members' && (

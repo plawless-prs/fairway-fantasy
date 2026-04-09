@@ -4,12 +4,13 @@ import { useAuth } from '../hooks/useAuth';
 import { useLeague } from '../hooks/useLeague';
 import {
   FORMAT_OPTIONS, DRAFT_OPTIONS, ROSTER_LOCK_OPTIONS,
-  TRADE_REVIEW_OPTIONS, WAIVER_OPTIONS,
+  TRADE_REVIEW_OPTIONS, WAIVER_OPTIONS, SCORING_MODE_OPTIONS,
 } from '../lib/constants';
 import toast from 'react-hot-toast';
 import { Settings, Users, Trophy, Shield, ArrowRight } from 'lucide-react';
 
-const Section = ({ icon, title, children }) => (
+function Section({ icon, title, children }) {
+  return (
     <div className="card space-y-4">
       <div className="flex items-center gap-2">
         {icon}
@@ -18,14 +19,17 @@ const Section = ({ icon, title, children }) => (
       {children}
     </div>
   );
+}
 
-  const Field = ({ label, children, hint }) => (
+function Field({ label, children, hint }) {
+  return (
     <div>
       <label className="block text-xs font-medium text-clubhouse-400 mb-1.5">{label}</label>
       {children}
       {hint && <p className="text-xs text-clubhouse-600 mt-1">{hint}</p>}
     </div>
   );
+}
 
 export default function LeagueCreate() {
   const { user } = useAuth();
@@ -43,6 +47,8 @@ export default function LeagueCreate() {
     trade_review: 'commissioner',
     waiver_type: 'inverse_standings',
     faab_budget: 100,
+    scoring_mode: 'lowball',
+    lowball_counting_scores: 5,
   });
 
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
@@ -93,6 +99,36 @@ export default function LeagueCreate() {
               </select>
             </Field>
           </div>
+        </Section>
+
+        {/* Scoring Mode */}
+        <Section icon={<Trophy size={20} className="text-fairway-400" />} title="Scoring Mode">
+          <Field label="Scoring System" hint="Classic: higher points = better. Lowball: lower points = better (like real golf).">
+            <select value={form.scoring_mode} onChange={e => update('scoring_mode', e.target.value)} className="select-field">
+              {SCORING_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          {form.scoring_mode === 'lowball' && (
+            <>
+              <Field label="Counting Scores" hint="How many of each team's best scores count per tournament">
+                <input type="number" value={form.lowball_counting_scores} onChange={e => update('lowball_counting_scores', parseInt(e.target.value))}
+                  min={1} max={10} className="input-field" />
+              </Field>
+              <div className="rounded-lg bg-fairway-900/15 border border-fairway-800/30 p-3 text-xs text-clubhouse-400 space-y-1.5">
+                <p className="font-semibold text-clubhouse-300">Lowball Scoring Rules:</p>
+                <p>• Each golfer's score = their finish position (1st = 1pt, 2nd = 2pts, etc.)</p>
+                <p>• Only the best {form.lowball_counting_scores} scores count per team</p>
+                <p>• Missed cut = last made cut position + 1</p>
+                <p className="font-semibold text-clubhouse-300 mt-2">Bonus Deductions:</p>
+                <p>• 1st place: <span className="text-sand-400">-10 pts</span></p>
+                <p>• 2nd–10th: <span className="text-fairway-400">-5 pts</span></p>
+                <p>• 11th–20th: <span className="text-fairway-400">-3 pts</span></p>
+                <p>• 21st–30th: <span className="text-clubhouse-300">-2 pts</span></p>
+                <p>• Made the cut: <span className="text-clubhouse-300">-1 pt</span></p>
+                <p>• Entire roster is active — no starters/bench distinction</p>
+              </div>
+            </>
+          )}
         </Section>
 
         {/* Roster Settings */}
