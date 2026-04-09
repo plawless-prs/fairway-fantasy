@@ -9,6 +9,24 @@ import {
 import toast from 'react-hot-toast';
 import { Settings, Users, Trophy, Shield, ArrowRight } from 'lucide-react';
 
+const Section = ({ icon, title, children }) => (
+    <div className="card space-y-4">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h3 className="font-display text-lg font-bold text-clubhouse-100">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+
+  const Field = ({ label, children, hint }) => (
+    <div>
+      <label className="block text-xs font-medium text-clubhouse-400 mb-1.5">{label}</label>
+      {children}
+      {hint && <p className="text-xs text-clubhouse-600 mt-1">{hint}</p>}
+    </div>
+  );
+
 export default function LeagueCreate() {
   const { user } = useAuth();
   const { createLeague, loading } = useLeague();
@@ -48,24 +66,6 @@ export default function LeagueCreate() {
       navigate(`/league/${data.id}`);
     }
   };
-
-  const Section = ({ icon, title, children }) => (
-    <div className="card space-y-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h3 className="font-display text-lg font-bold text-clubhouse-100">{title}</h3>
-      </div>
-      {children}
-    </div>
-  );
-
-  const Field = ({ label, children, hint }) => (
-    <div>
-      <label className="block text-xs font-medium text-clubhouse-400 mb-1.5">{label}</label>
-      {children}
-      {hint && <p className="text-xs text-clubhouse-600 mt-1">{hint}</p>}
-    </div>
-  );
 
   return (
     <div className="page-container max-w-3xl">

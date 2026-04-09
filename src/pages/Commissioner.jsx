@@ -13,6 +13,14 @@ import {
   Save, Shuffle, Trash2, CheckCircle
 } from 'lucide-react';
 
+const Field = ({ label, children, hint }) => (
+    <div>
+      <label className="block text-xs font-medium text-clubhouse-400 mb-1.5">{label}</label>
+      {children}
+      {hint && <p className="text-xs text-clubhouse-600 mt-1">{hint}</p>}
+    </div>
+  );
+
 export default function Commissioner() {
   const { id: leagueId } = useParams();
   const { user } = useAuth();
@@ -126,13 +134,7 @@ export default function Commissioner() {
     setWaivers(data || []);
   };
 
-  const Field = ({ label, children, hint }) => (
-    <div>
-      <label className="block text-xs font-medium text-clubhouse-400 mb-1.5">{label}</label>
-      {children}
-      {hint && <p className="text-xs text-clubhouse-600 mt-1">{hint}</p>}
-    </div>
-  );
+  
 
   if (pageLoading) {
     return (
