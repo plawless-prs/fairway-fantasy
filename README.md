@@ -9,7 +9,7 @@ A full-featured fantasy golf application built with React + Vite, Supabase, and 
 - **Hosting**: Vercel
 - **Source Control**: GitHub
 
----
+--- 
 
 ## 🚀 Setup Instructions
 
