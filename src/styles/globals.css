@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-clubhouse-950 text-clubhouse-100 font-body antialiased;
+  }
+
+  ::selection {
+    @apply bg-fairway-500/40 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-clubhouse-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-clubhouse-600 rounded-full;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-5 py-2.5 bg-fairway-600 hover:bg-fairway-500 text-white font-semibold
+           rounded-lg transition-all duration-200 active:scale-[0.97]
+           shadow-lg shadow-fairway-900/50 hover:shadow-fairway-700/50;
+  }
+
+  .btn-secondary {
+    @apply px-5 py-2.5 bg-clubhouse-800 hover:bg-clubhouse-700 text-clubhouse-200
+           font-medium rounded-lg transition-all duration-200 border border-clubhouse-700
+           active:scale-[0.97];
+  }
+
+  .btn-danger {
+    @apply px-5 py-2.5 bg-red-900/60 hover:bg-red-800/60 text-red-200
+           font-medium rounded-lg transition-all duration-200 border border-red-800/50
+           active:scale-[0.97];
+  }
+
+  .btn-gold {
+    @apply px-5 py-2.5 bg-sand-600 hover:bg-sand-500 text-white font-semibold
+           rounded-lg transition-all duration-200 active:scale-[0.97]
+           shadow-lg shadow-sand-900/50;
+  }
+
+  .card {
+    @apply bg-clubhouse-900/80 border border-clubhouse-800 rounded-xl p-5
+           backdrop-blur-sm;
+  }
+
+  .card-hover {
+    @apply card hover:border-clubhouse-600 hover:bg-clubhouse-900
+           transition-all duration-200 cursor-pointer;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-clubhouse-900 border border-clubhouse-700
+           rounded-lg text-clubhouse-100 placeholder-clubhouse-500
+           focus:outline-none focus:border-fairway-500 focus:ring-1 focus:ring-fairway-500/30
+           transition-colors duration-200;
+  }
+
+  .select-field {
+    @apply input-field appearance-none cursor-pointer
+           bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20fill%3D%22%2396856a%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M1.5%204.5l6.5%207%206.5-7%22%20stroke%3D%22%2396856a%22%20stroke-width%3D%222%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E')]
+           bg-no-repeat bg-[center_right_1rem];
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-green {
+    @apply badge bg-fairway-900/60 text-fairway-300 border border-fairway-700/50;
+  }
+
+  .badge-gold {
+    @apply badge bg-sand-900/60 text-sand-300 border border-sand-700/50;
+  }
+
+  .badge-red {
+    @apply badge bg-red-900/60 text-red-300 border border-red-800/50;
+  }
+
+  .badge-gray {
+    @apply badge bg-clubhouse-800 text-clubhouse-400 border border-clubhouse-700;
+  }
+
+  .section-title {
+    @apply font-display text-2xl font-bold text-clubhouse-100 tracking-tight;
+  }
+
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+
+  .table-header {
+    @apply text-left text-xs font-semibold text-clubhouse-400 uppercase tracking-wider px-4 py-3;
+  }
+
+  .table-cell {
+    @apply px-4 py-3 text-sm text-clubhouse-200;
+  }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
