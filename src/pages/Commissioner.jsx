@@ -176,44 +176,18 @@ export default function Commissioner() {
 
     setCreatingAccount(true);
     try {
-      // Create the user via Supabase Auth admin-style
-      // Note: This uses the client-side signUp which will create the user
-      // We temporarily sign them up, then the trigger creates their profile
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { display_name: displayName },
-        },
+      const { data, error } = await supabase.rpc('commissioner_create_member', {
+        p_email: email,
+        p_password: password,
+        p_display_name: displayName,
+        p_team_name: teamName,
+        p_league_id: leagueId,
       });
 
-      if (authError) {
-        toast.error(authError.message);
-        setCreatingAccount(false);
-        return;
-      }
-
-      const newUserId = authData.user?.id;
-      if (!newUserId) {
-        toast.error('Account created but could not get user ID. They may need to confirm their email first, then you can add them manually.');
-        setCreatingAccount(false);
-        return;
-      }
-
-      // Wait a moment for the profile trigger to fire
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Add them to the league
-      const memberCount = league?.league_members?.length || 0;
-      const { error: joinError } = await supabase.from('league_members').insert({
-        league_id: leagueId,
-        user_id: newUserId,
-        team_name: teamName,
-        waiver_priority: memberCount + 1,
-      });
-
-      if (joinError) {
-        toast.error('Account created but failed to join league: ' + joinError.message);
+      if (error) {
+        toast.error(error.message);
+      } else if (data && !data.success) {
+        toast.error(data.error || 'Failed to create account');
       } else {
         toast.success(`Created account for ${displayName} and added to league!`);
         setNewAccount({ email: '', password: '', displayName: '', teamName: '' });
