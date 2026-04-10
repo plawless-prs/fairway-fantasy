@@ -788,6 +788,27 @@ export default function Commissioner() {
               )}
             </div>
           </div>
+
+          <div className="card border-red-800/30 bg-red-900/10 mt-6">
+            <h3 className="text-sm font-semibold text-red-300 mb-2">Danger Zone</h3>
+            <p className="text-xs text-clubhouse-500 mb-4">
+              Permanently delete this league and all its data (teams, rosters, trades, draft picks). This cannot be undone.
+            </p>
+            <button onClick={async () => {
+              if (!confirm('Are you sure you want to DELETE this entire league? This cannot be undone.')) return;
+              if (!confirm('Really sure? All teams, rosters, and history will be lost forever.')) return;
+              const { error } = await supabase.from('leagues').delete().eq('id', leagueId);
+              if (error) {
+                toast.error(error.message);
+              } else {
+                toast.success('League deleted');
+                navigate('/dashboard');
+              }
+            }}
+              className="btn-danger flex items-center gap-2">
+              <Trash2 size={15} /> Delete League Permanently
+            </button>
+          </div>
         </div>
       )}
 
