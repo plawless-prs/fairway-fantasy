@@ -6,7 +6,7 @@ import { useRoster } from '../hooks/useRoster';
 import RosterSlot from '../components/RosterSlot';
 import TradeModal from '../components/TradeModal';
 import toast from 'react-hot-toast';
-import { Users, ArrowUpDown } from 'lucide-react';
+import { Users, ArrowUpDown, Edit3, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function MyTeam() {
@@ -18,6 +18,8 @@ export default function MyTeam() {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tradeModal, setTradeModal] = useState({ open: false, targetMember: null });
+  const [editingName, setEditingName] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
   const [targetRoster, setTargetRoster] = useState([]);
 
   const myMembership = league?.league_members?.find(m => m.user_id === user?.id);
@@ -115,9 +117,38 @@ export default function MyTeam() {
     <div className="page-container">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-clubhouse-50 tracking-tight">
-            {myMembership?.team_name || 'My Team'}
-          </h1>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input type="text" value={newTeamName}
+                onChange={e => setNewTeamName(e.target.value)}
+                className="input-field text-xl font-display font-bold py-1.5"
+                autoFocus />
+              <button onClick={async () => {
+                if (!newTeamName.trim()) { toast.error('Team name cannot be empty'); return; }
+                const { error } = await supabase.from('league_members')
+                  .update({ team_name: newTeamName.trim() })
+                  .eq('id', myMembership.id);
+                if (error) { toast.error(error.message); }
+                else { toast.success('Team name updated!'); setEditingName(false); }
+              }} className="p-2 text-fairway-400 hover:text-fairway-300 rounded-lg hover:bg-clubhouse-800">
+                <Check size={18} />
+              </button>
+              <button onClick={() => { setEditingName(false); setNewTeamName(myMembership?.team_name || ''); }}
+                className="p-2 text-clubhouse-500 hover:text-white rounded-lg hover:bg-clubhouse-800">
+                <X size={18} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-3xl font-bold text-clubhouse-50 tracking-tight">
+                {myMembership?.team_name || 'My Team'}
+              </h1>
+              <button onClick={() => { setNewTeamName(myMembership?.team_name || ''); setEditingName(true); }}
+                className="p-2 text-clubhouse-500 hover:text-sand-400 rounded-lg hover:bg-clubhouse-800 transition-colors">
+                <Edit3 size={16} />
+              </button>
+            </div>
+          )}
           <p className="text-sm text-clubhouse-500 mt-1">
             {starters.length}/{league?.roster_starters || 6} starters · {bench.length}/{league?.roster_bench || 2} bench
           </p>
