@@ -75,7 +75,7 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
       const order = c.order || 999;
 
       // Determine completed rounds from linescores
-      const completedRounds = (c.linescores || []).filter(ls => ls.value !== undefined && ls.value !== null);
+      const completedRounds = (c.linescores || []).filter(ls => ls.value !== undefined && ls.value > 0);
       const totalCompletedRounds = completedRounds.length;
 
       // Parse the score string
