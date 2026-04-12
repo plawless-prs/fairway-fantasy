@@ -107,7 +107,7 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
                     c.status?.type?.name === 'cut' ||
                     c.status?.type?.description === 'Cut';
       // Method 2: After the cut round, players with fewer rounds than leaders are cut
-      const inferredCut = cutHasHappened && totalCompletedRounds < maxCompletedRounds;
+      const inferredCut = cutHasHappened && totalCompletedRounds <= 2;
 
       const isCut = explicitCut || inferredCut;
       const isWithdrawn = scoreStr === 'WD' || c.status?.type?.description === 'Withdrawn';
