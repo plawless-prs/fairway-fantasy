@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase';
 import { fetchESPNLeaderboard, matchPlayersToGolfers } from '../lib/espn';
 import { calculateLowballTeamScore, ordinal, getBonusBadgeColor } from '../lib/scoring';
 import { getFlag } from '../lib/constants';
-import { RefreshCw, Trophy, ChevronDown, ChevronUp, Minus, AlertCircle } from 'lucide-react';
+import { RefreshCw, Trophy, ChevronDown, ChevronUp, Minus, AlertCircle, Save, Check } from 'lucide-react';
 
-export default function TournamentScoreboard({ league }) {
+export default function TournamentScoreboard({ league, isCommissioner = false }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [tournament, setTournament] = useState(null);
   const [missedCutPosition, setMissedCutPosition] = useState(0);
@@ -14,6 +14,8 @@ export default function TournamentScoreboard({ league }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const loadScoreboard = async () => {
     setLoading(true);
@@ -134,6 +136,66 @@ export default function TournamentScoreboard({ league }) {
     loadScoreboard();
   }, [league.id]);
 
+  // Check if this tournament has already been saved
+  useEffect(() => {
+    if (tournament?.id) {
+      supabase
+        .from('lowball_tournament_scores')
+        .select('id')
+        .eq('league_id', league.id)
+        .eq('tournament_espn_id', tournament.id)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) setSaved(true);
+        });
+    }
+  }, [tournament?.id, league.id]);
+
+  const saveTournamentResults = async () => {
+    if (!tournament || teamScores.length === 0) return;
+    setSaving(true);
+
+    try {
+      const rows = teamScores.map(team => ({
+        league_id: league.id,
+        member_id: team.member.id,
+        tournament_espn_id: tournament.id,
+        tournament_name: tournament.name,
+        season_year: new Date().getFullYear(),
+        team_total: team.teamTotal,
+        missed_cut_position: missedCutPosition,
+        player_scores: team.players.map(p => ({
+          golfer_id: p.golfer?.id,
+          golfer_name: p.golfer?.name || 'Unknown',
+          finish_position: p.finishPosition,
+          display_position: p.displayPosition,
+          base: p.base,
+          bonus: p.bonus,
+          bonus_label: p.bonusLabel,
+          total: p.total,
+          made_the_cut: p.madeTheCut,
+          counting: p.counting,
+          score: p.score,
+        })),
+      }));
+
+      const { error: saveError } = await supabase
+        .from('lowball_tournament_scores')
+        .upsert(rows, { onConflict: 'league_id,member_id,tournament_espn_id' });
+
+      if (saveError) {
+        console.error('Save error:', saveError);
+        alert('Error saving results: ' + saveError.message);
+      } else {
+        setSaved(true);
+        alert('Tournament results saved to standings!');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+    setSaving(false);
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -183,11 +245,24 @@ export default function TournamentScoreboard({ league }) {
                 </span>
               </div>
             </div>
-            <button onClick={loadScoreboard}
-              className="p-2 text-clubhouse-500 hover:text-white rounded-lg hover:bg-clubhouse-800 transition-colors"
-              title="Refresh scores">
-              <RefreshCw size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              {isCommissioner && (
+                <button onClick={saveTournamentResults}
+                  disabled={saving || saved}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                    ${saved ? 'bg-fairway-900/30 text-fairway-400 border border-fairway-700/40' :
+                      'btn-gold'}`}
+                  title={saved ? 'Results already saved' : 'Save results to standings'}>
+                  {saved ? <Check size={13} /> : <Save size={13} />}
+                  {saving ? 'Saving...' : saved ? 'Saved' : 'Save to Standings'}
+                </button>
+              )}
+              <button onClick={loadScoreboard}
+                className="p-2 text-clubhouse-500 hover:text-white rounded-lg hover:bg-clubhouse-800 transition-colors"
+                title="Refresh scores">
+                <RefreshCw size={16} />
+              </button>
+            </div>
           </div>
           {lastUpdated && (
             <p className="text-[10px] text-clubhouse-600 mt-2">
