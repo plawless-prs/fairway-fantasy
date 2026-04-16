@@ -40,6 +40,21 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
     }
 
     const event = data.events[0];
+    // Only track the four majors
+    const eventName = (event.name || '').toLowerCase();
+    const isMajor = eventName.includes('masters') ||
+                    eventName.includes('pga championship') ||
+                    eventName.includes('u.s. open') || eventName.includes('us open') ||
+                    eventName.includes('open championship') || eventName.includes('the open');
+
+    if (!isMajor) {
+      return {
+        error: `Current event "${event.name}" is not a major. Tracking only resumes during the next major.`,
+        tournament: null,
+        leaderboard: [],
+        missedCutPosition: 0
+      };
+    }
     const competition = event.competitions?.[0];
     const competitors = competition?.competitors || [];
 
