@@ -19,9 +19,9 @@
  *   not appear. We detect cut by checking if later rounds are absent
  *   after a cut round.
  */
-
+ 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga';
-
+ 
 /**
  * Fetch current/recent tournament scoreboard from ESPN
  */
@@ -30,15 +30,15 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
     const url = tournamentId
       ? `${ESPN_BASE}/scoreboard?event=${tournamentId}`
       : `${ESPN_BASE}/scoreboard`;
-
+ 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`ESPN API error: ${res.status}`);
     const data = await res.json();
-
+ 
     if (!data.events || data.events.length === 0) {
       return { error: 'No active tournament found', tournament: null, leaderboard: [], missedCutPosition: 0 };
     }
-
+ 
     const event = data.events[0];
     // Only track the four majors
     const eventName = (event.name || '').toLowerCase();
@@ -46,7 +46,7 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
                     eventName.includes('pga championship') ||
                     eventName.includes('u.s. open') || eventName.includes('us open') ||
                     eventName.includes('open championship') || eventName.includes('the open');
-
+ 
     if (!isMajor) {
       return {
         error: `Current event "${event.name}" is not a major. Tracking only resumes during the next major.`,
@@ -57,11 +57,11 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
     }
     const competition = event.competitions?.[0];
     const competitors = competition?.competitors || [];
-
+ 
     // Figure out tournament status from the competition object
     const statusObj = competition?.status || {};
     const statusType = statusObj?.type || {};
-
+ 
     const tournament = {
       id: event.id,
       name: event.name || event.shortName || 'PGA Tournament',
@@ -76,23 +76,30 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
         ? `${event.courses[0].address.city}, ${event.courses[0].address.state || event.courses[0].address.country || ''}`
         : '',
     };
-
+ 
     // Determine how many rounds have been completed for the tournament
     // (useful for detecting cut — typically after round 2)
     const totalRounds = 4; // Standard PGA event
-
-    // First pass: figure out the max completed rounds (what the leaders have played)
+ 
+    // First pass: figure out the max completed rounds (with actual scores posted)
+    // Used for tie-aware scoring and position calculation
     let maxCompletedRounds = 0;
     for (const c of competitors) {
       const completed = (c.linescores || []).filter(ls => ls.value !== undefined && ls.value !== null && ls.value > 0).length;
       if (completed > maxCompletedRounds) maxCompletedRounds = completed;
     }
-
-    // The cut happens after round 2. If leaders have played 3+ rounds,
-    // anyone with only 2 rounds has been cut.
-    const cutHasHappened = maxCompletedRounds >= 3;
-    console.log('[ESPN Debug] maxCompletedRounds:', maxCompletedRounds, 'cutHasHappened:', cutHasHappened, 'totalPlayers:', competitors.length);
-
+ 
+    // Cut detection: after the cut, players who made it have 3+ linescore ENTRIES
+    // (even with value:0 for rounds not yet started), while cut players have only 2 entries.
+    // We check the total number of linescore entries, not just completed rounds.
+    let maxLinescoreEntries = 0;
+    for (const c of competitors) {
+      const entries = (c.linescores || []).length;
+      if (entries > maxLinescoreEntries) maxLinescoreEntries = entries;
+    }
+    const cutHasHappened = maxLinescoreEntries >= 3;
+    console.log('[ESPN Debug] maxCompletedRounds:', maxCompletedRounds, 'maxLinescoreEntries:', maxLinescoreEntries, 'cutHasHappened:', cutHasHappened, 'totalPlayers:', competitors.length);
+ 
     // Parse each competitor
     const leaderboard = competitors.map(c => {
       const athlete = c.athlete || {};
@@ -100,11 +107,13 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
       const country = athlete.flag?.alt || '';
       const scoreStr = c.score || '';
       const order = c.order || 999;
-
-      // Determine completed rounds from linescores
+ 
+      // Determine completed rounds from linescores (rounds with actual scores)
       const completedRounds = (c.linescores || []).filter(ls => ls.value !== undefined && ls.value !== null && ls.value > 0);
       const totalCompletedRounds = completedRounds.length;
-
+      // Total linescore entries (includes rounds with value:0 for players who made cut but haven't teed off)
+      const totalLinescoreEntries = (c.linescores || []).length;
+ 
       // Parse the score string
       let toPar = 0;
       if (scoreStr === 'E') {
@@ -115,20 +124,21 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
         const parsed = parseInt(scoreStr);
         if (!isNaN(parsed)) toPar = parsed;
       }
-
+ 
       // Detect if player missed the cut
       // Method 1: ESPN explicitly marks them
       const explicitCut = scoreStr === 'CUT' || scoreStr === 'MC' ||
                     c.status?.type?.name === 'cut' ||
                     c.status?.type?.description === 'Cut';
-      // Method 2: After the cut round, players with fewer rounds than leaders are cut
-      const inferredCut = cutHasHappened && totalCompletedRounds <= 2;
-
+      // Method 2: After the cut, players who made it have 3+ linescore entries.
+      // Cut players only have 2 entries (R1 and R2 only, no R3/R4 placeholder).
+      const inferredCut = cutHasHappened && totalLinescoreEntries <= 2;
+ 
       const isCut = explicitCut || inferredCut;
       const isWithdrawn = scoreStr === 'WD' || c.status?.type?.description === 'Withdrawn';
       const isDisqualified = scoreStr === 'DQ' || c.status?.type?.description === 'Disqualified';
       const madeTheCut = !isCut && !isWithdrawn && !isDisqualified;
-
+ 
       return {
         espnId: c.id || athlete.id,
         name,
@@ -149,10 +159,10 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
         })),
       };
     });
-
+ 
     // Sort by order (leaderboard position)
     leaderboard.sort((a, b) => a.position - b.position);
-
+ 
     // ── Calculate tie-aware positions ──
     // Players with the same score share the same position
     // e.g., if 3 players are tied at -5 starting at order 1, they all get position 1 (T1)
@@ -168,18 +178,18 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
       }
       // else: same score as previous — keep currentTiePosition
       activePlayers[i].tiedPosition = currentTiePosition;
-
+ 
       const playersAtThisScore = activePlayers.filter(p => p.score === activePlayers[i].score);
       activePlayers[i].isTied = playersAtThisScore.length > 1;
       activePlayers[i].displayPosition = activePlayers[i].isTied
         ? `T${currentTiePosition}`
         : String(currentTiePosition);
     }
-
+ 
     // For cut/WD/DQ players, set their position to missedCutPosition
     // (calculated below, then backfilled)
     const cutPlayers = leaderboard.filter(p => !p.madeTheCut);
-
+ 
     // Calculate missed cut position
     // = the tied position of the last player who made the cut, + 1
     let lastMadeCutPosition = 0;
@@ -193,14 +203,14 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
     const missedCutPosition = anyoneCut
       ? lastMadeCutPosition + 1
       : leaderboard.length + 1;
-
+ 
     // Backfill cut players with the missed cut position
     cutPlayers.forEach(p => {
       p.tiedPosition = missedCutPosition;
       p.isTied = false;
       p.displayPosition = 'MC';
     });
-
+ 
     return {
       tournament,
       leaderboard,
@@ -212,7 +222,7 @@ export async function fetchESPNLeaderboard(tournamentId = null) {
     return { error: err.message, tournament: null, leaderboard: [], missedCutPosition: 0 };
   }
 }
-
+ 
 /**
  * Match ESPN leaderboard players to our golfers database by name
  * Uses fuzzy matching: exact match first, then last-name match
@@ -222,15 +232,15 @@ export function matchPlayersToGolfers(leaderboard, golfers) {
   const matches = [];
   const unmatched = [];
   const matched = new Set();
-
+ 
   for (const espnPlayer of leaderboard) {
     const espnName = espnPlayer.name.toLowerCase().trim();
-
+ 
     // Exact match
     let golfer = golfers.find(g =>
       !matched.has(g.id) && g.name.toLowerCase().trim() === espnName
     );
-
+ 
     // Last name match (if ESPN name has a last name that matches)
     if (!golfer) {
       const espnParts = espnName.split(' ');
@@ -246,7 +256,7 @@ export function matchPlayersToGolfers(leaderboard, golfers) {
         if (candidates.length === 1) golfer = candidates[0];
       }
     }
-
+ 
     if (golfer) {
       matched.add(golfer.id);
       matches.push({ golfer, espnPlayer });
@@ -254,6 +264,6 @@ export function matchPlayersToGolfers(leaderboard, golfers) {
       unmatched.push(espnPlayer);
     }
   }
-
+ 
   return { matches, unmatched };
 }
