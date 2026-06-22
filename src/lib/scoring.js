@@ -133,8 +133,17 @@ export function calculateLowballTeamScore(rosterResults, missedCutPosition, coun
     };
   });
 
-  // Sort by total (ascending — best scores first)
-  scored.sort((a, b) => a.total - b.total);
+  // Sort by total (ascending — best scores first).
+  // Tiebreaker: when two players have the same total (e.g. both at the
+  // missed-cut position), prefer the one who was actually in the field.
+  // This avoids using a player who didn't play ahead of one who teed off
+  // but missed the cut. `isPlaying` is supplied by the scoreboard.
+  scored.sort((a, b) => {
+    if (a.total !== b.total) return a.total - b.total;
+    const aPlayed = a.isPlaying ? 1 : 0;
+    const bPlayed = b.isPlaying ? 1 : 0;
+    return bPlayed - aPlayed; // in-field (1) sorts before not-in-field (0)
+  });
 
   // Take the best N scores
   const countingPlayers = scored.slice(0, countingScores);
