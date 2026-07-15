@@ -1,10 +1,13 @@
 import { getFlag } from '../lib/constants';
 import { UserPlus, UserMinus, ArrowUpDown } from 'lucide-react';
 
-export default function PlayerCard({ golfer, actions = [], compact = false }) {
+export default function PlayerCard({ golfer, actions = [], compact = false, muted = false, badge = null }) {
   if (!golfer) return null;
 
   const flag = getFlag(golfer.country);
+  // A muted card is shown for reference only (e.g. rostered or not-in-field
+  // players in Free Agents) — dim it and never render action buttons.
+  const shownActions = muted ? [] : actions;
 
   if (compact) {
     return (
@@ -30,7 +33,7 @@ export default function PlayerCard({ golfer, actions = [], compact = false }) {
   }
 
   return (
-    <div className="card-hover flex items-center gap-4">
+    <div className={`card-hover flex items-center gap-4 ${muted ? 'opacity-50' : ''}`}>
       {/* Rank badge */}
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-mono text-sm font-bold shrink-0
         ${golfer.owgr_rank <= 10 ? 'bg-sand-700/30 text-sand-300 border border-sand-700/40' :
@@ -44,6 +47,11 @@ export default function PlayerCard({ golfer, actions = [], compact = false }) {
         <div className="flex items-center gap-2">
           <span className="text-base">{flag}</span>
           <span className="font-semibold text-clubhouse-100 truncate">{golfer.name}</span>
+          {badge && (
+            <span className={`badge shrink-0 text-[10px] ${badge.className || 'bg-clubhouse-800 text-clubhouse-400 border border-clubhouse-700'}`}>
+              {badge.label}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           <span className="text-xs text-clubhouse-500">{golfer.country}</span>
@@ -56,9 +64,9 @@ export default function PlayerCard({ golfer, actions = [], compact = false }) {
       </div>
 
       {/* Actions */}
-      {actions.length > 0 && (
+      {shownActions.length > 0 && (
         <div className="flex items-center gap-2 shrink-0">
-          {actions.map((action, i) => (
+          {shownActions.map((action, i) => (
             <button key={i} onClick={action.onClick}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
                 ${action.variant === 'add' ? 'btn-primary text-xs px-3 py-1.5' :

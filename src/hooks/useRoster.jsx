@@ -50,6 +50,18 @@ export function useRoster() {
     return { data, error };
   }, []);
 
+  // All golfers currently rostered anywhere in the league, with the owning
+  // team's name. Used by the Free Agents "show rostered players" filter to
+  // display (but not allow claiming) players already on a team. RLS lets any
+  // league member read every roster in their league.
+  const getLeagueRosters = useCallback(async (leagueId) => {
+    const { data, error } = await supabase
+      .from('rosters')
+      .select('golfer_id, golfers(*), league_members!inner(team_name, league_id)')
+      .eq('league_members.league_id', leagueId);
+    return { data, error };
+  }, []);
+
   // ─── Trades ───────────────────────────────────────────
   const proposeTrade = useCallback(async (tradeData) => {
     setLoading(true);
@@ -150,7 +162,7 @@ export function useRoster() {
 
   return {
     getMyRoster, addToRoster, dropFromRoster, moveSlot,
-    getFreeAgents, getAllGolfers,
+    getFreeAgents, getLeagueRosters, getAllGolfers,
     proposeTrade, getTradesForLeague, respondToTrade, executeTrade,
     submitWaiverClaim, getWaiverClaims, processWaiverClaim,
     loading,
