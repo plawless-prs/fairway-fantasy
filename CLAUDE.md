@@ -17,7 +17,8 @@ still exists in the code and database.
 - **Frontend**: React 18, React Router v6, Tailwind CSS v3, `lucide-react` icons, `react-hot-toast`
 - **Build**: Vite 5 (`npm run dev` / `build` / `preview`)
 - **Backend**: Supabase — Postgres, Auth (email/password), Row Level Security, PostgREST client (`@supabase/supabase-js`)
-- **Serverless**: one Vercel function in `api/` (`keep-alive.js`)
+- **Serverless**: Vercel functions in `api/` (`keep-alive.js`, `field.js`, `notify-waiver.js`)
+- **Email**: Resend (waiver-claim notifications, via `api/notify-waiver.js`)
 - **Hosting**: Vercel (SPA rewrite + cron in `vercel.json`)
 
 ## Running Locally
@@ -28,11 +29,29 @@ npm run dev        # http://localhost:5173
 ```
 
 Requires a `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. These are
-also read by the serverless function via `process.env` (note: the keep-alive
+also read by the serverless functions via `process.env` (note: the keep-alive
 function uses the same `VITE_`-prefixed names, set them in Vercel project settings).
+
+**Server-only env vars** (set in Vercel project settings, never `VITE_`-prefixed
+so they stay off the client) — needed by `api/notify-waiver.js`:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — service role key; reads `auth.users` (the
+  commissioner's email) and bypasses RLS. **Never expose client-side.**
+- `RESEND_API_KEY` — Resend API key for sending the waiver email.
+- `RESEND_FROM` — verified sender, e.g. `Fairway Fantasy <noreply@domain>`;
+  defaults to Resend's `onboarding@resend.dev` sandbox sender (which can only
+  email your own Resend account address until a domain is verified).
 
 There is no test suite, linter config, or typechecker in this project. "Verifying"
 a change means running `npm run dev` and exercising the flow in the browser.
+
+**Dev gotcha — `api/` functions under `npm run dev`:** plain Vite does not run
+the Vercel functions in `api/`. `vite.config.js` includes a dev-only plugin
+(`devApiPlugin`) that serves `api/*.js` during `npm run dev` so `/api/field`
+etc. work locally. It adapts a Node req/res to the `(req, res)` handler
+signature. Changing `vite.config.js` requires a dev-server restart. (Without the
+plugin — or under a stale server — `/api/field` returns nothing and the Free
+Agents field filter silently disables itself, showing all players.)
 
 ## Architecture
 
@@ -48,6 +67,8 @@ src/
 │   ├── supabase.js       # singleton Supabase client
 │   ├── scoring.js        # BOTH scoring engines (Classic + Lowball) + helpers
 │   ├── espn.js           # ESPN leaderboard fetch, cut detection, name→golfer matching
+│   ├── field.js          # /api/field client + name-match to flag golfers inField
+│   ├── notify.js         # client trigger for server-side notifications (waiver email)
 │   └── constants.js      # dropdown option lists, country flags, status labels
 ├── pages/                # route-level screens (one per URL)
 │   ├── Home, Login, Dashboard, LeagueCreate, LeagueView,
@@ -57,6 +78,8 @@ src/
 └── styles/globals.css    # Tailwind layers + component classes (.card, .btn-*, .badge-*)
 
 api/keep-alive.js         # Vercel cron target — pings Supabase to prevent free-tier pause
+api/field.js              # field proxy — official major feed (The Open) → ESPN fallback
+api/notify-waiver.js      # emails the commissioner (Resend) on a new waiver claim
 supabase/migrations/      # 001_initial_schema.sql (see "Schema drift" caveat below)
 ```
 
@@ -89,6 +112,32 @@ supabase/migrations/      # 001_initial_schema.sql (see "Schema drift" caveat be
 
 Scores are recomputed client-side on each load; the saved rows are point-in-time
 snapshots including per-player breakdowns (`player_scores` JSON).
+
+### Free Agents: field & roster filtering (`FreeAgents.jsx`)
+
+The free-agent list is filtered against the **current major's field** so players
+who aren't teeing it up don't clutter the claim list:
+
+1. `fetchField()` (`lib/field.js`) calls the `api/field.js` proxy, which detects
+   the current major (via ESPN) and returns the field — preferring the major's
+   **own** feed (The Open's `scoring.theopen.com`), falling back to ESPN's
+   competitor list. See the gotcha below.
+2. `annotateFieldStatus()` name-matches the field to our `golfers` rows and tags
+   each with `inField` (`true` / `false` / `null` when the field is unknown).
+   Matching mirrors `espn.js`: accent-stripped exact full-name, then a
+   unique-last-name match **only if the first names are compatible**
+   (Matt/Matthew ok; Cam/Jordan not) — the loose version caused false positives.
+3. **In-field players are claimable by default; non-field players are hidden.**
+   A **"Show players not in field"** toggle reveals them greyed and unclaimable.
+   When the field is unknown (between majors, or the feed is down), `inField` is
+   `null` → nothing is hidden and a note says the field can't be verified.
+4. A **"Show rostered players"** toggle appends golfers already on *other* teams
+   (`useRoster.getLeagueRosters` — RLS lets any member read league rosters),
+   shown greyed with an `On {team}` badge and no Claim button.
+
+`PlayerCard` gained `muted` (dim + suppress actions) and `badge` props to render
+these reference-only rows. On a successful **waiver** claim (not first-come),
+`notifyWaiverClaim()` fires `api/notify-waiver.js` to email the commissioner.
 
 ## Lowball Scoring Rules
 
@@ -208,7 +257,23 @@ from `001`. Don't assume the migration file is the complete schema.
   to fix specific real-world bugs (large cuts, live-round-3 false positives — see
   commits `0ab3a5b`, `da37caf`).
 - **Majors-only gate** lives in `fetchESPNLeaderboard`. To track more events,
-  change the `isMajor` check there.
+  change the `isMajor` check there. The **same gate is duplicated** in
+  `api/field.js` (`isMajorName`) — keep the two in sync.
+- **Field feed** (`api/field.js`) is a server-side proxy (avoids browser CORS on
+  the official feeds). It prefers each major's own data feed and falls back to
+  ESPN's competitor list. Only **The Open** is wired up so far, via
+  `https://scoring.theopen.com/scoring?feedType=traditional` (public, no key,
+  ~156 players with `firstName`/`lastName`, available before play starts). The
+  other three majors (`OFFICIAL_FEEDS` in `api/field.js`) currently fall through
+  to ESPN until their feeds are discovered during their event weeks. Event
+  detection still goes through ESPN, so the field is only "known" during a major
+  week; otherwise the Free Agents filter degrades to showing everyone.
+- **Resend email** (`api/notify-waiver.js`) sends the commissioner a waiver-claim
+  notification. Uses the Resend REST API via `fetch` (no SDK dependency) and the
+  Supabase **service role** key to resolve the commissioner's email from
+  `auth.users` (not stored in `profiles`). Requires `SUPABASE_SERVICE_ROLE_KEY`,
+  `RESEND_API_KEY`, and optionally `RESEND_FROM` (see Running Locally). It's
+  fire-and-forget from the client — a failed email never blocks the claim.
 - **Keep-alive cron** (`vercel.json` → `/api/keep-alive`, every 3 days) exists
   solely to keep the free-tier Supabase project from pausing. Don't remove it
   without a replacement (commit `29ff1b7`).
